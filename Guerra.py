@@ -1,27 +1,33 @@
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from sklearn.metrics import f1_score, confusion_matrix
 from tpot import TPOTClassifier
 
 # Step 1: Load Data
-# Assuming the dataset is in CSV format with 'features.csv'
-data = pd.read_csv('features.csv')  # Replace with your dataset
-target = 'risk_class'  # Replace with your target column name
+data = pd.read_csv('features.csv')  # Replace with your dataset file name
 
-# Split features and target
-X = data.drop(columns=[target])
-y = data[target]
+# Step 2: Drop 'report_date' and separate the target variable
+X = data.drop(columns=['report_date', 'risk_class'])  # Drop unnecessary columns
+y = data['risk_class']  # Target column
 
-# Step 2: Preprocessing
-# Scale the features
+# Encode target variable
+label_encoder = LabelEncoder()
+y = label_encoder.fit_transform(y)  # Convert 'High', 'Low', etc., to integers
+
+# Print the label encoding mapping
+print("Label Encoding Mapping:")
+for idx, label in enumerate(label_encoder.classes_):
+    print(f"{label}: {idx}")
+
+# Step 3: Preprocessing - Scale the features
 scaler = MinMaxScaler()
 X_scaled = scaler.fit_transform(X)
 
-# Step 3: Feature Selection using Random Forest
+# Step 4: Feature Selection using Random Forest
 feature_selector = RandomForestClassifier(n_estimators=100, random_state=42)
 feature_selector.fit(X_scaled, y)
 
@@ -29,10 +35,11 @@ feature_selector.fit(X_scaled, y)
 important_features = np.where(feature_selector.feature_importances_ > 0.01)[0]
 X_selected = X_scaled[:, important_features]
 
-# Step 4: Train-Test Split
+# Step 5: Train-Test Split
 X_train, X_test, y_train, y_test = train_test_split(X_selected, y, test_size=0.2, stratify=y, random_state=42)
 
-# Step 5: Model Training
+# Step 6: Model Training and Evaluation
+
 # Logistic Regression (Baseline)
 from sklearn.linear_model import LogisticRegression
 log_reg = LogisticRegression(max_iter=1000, random_state=42)
@@ -57,17 +64,17 @@ tpot = TPOTClassifier(generations=5, population_size=50, verbosity=3, scoring='f
 tpot.fit(X_train, y_train)
 f1_tpot = f1_score(y_test, tpot.predict(X_test), average='weighted')
 
-# Step 6: Evaluation and Comparison
-print(f"F1 Scores:")
+# Step 7: Evaluation and Comparison
+print(f"\nF1 Scores:")
 print(f"Logistic Regression: {f1_log:.4f}")
 print(f"Random Forest: {f1_rf:.4f}")
 print(f"XGBoost: {f1_xgb:.4f}")
 print(f"TPOT: {f1_tpot:.4f}")
 
 # Confusion Matrix Example
-print("Confusion Matrix (XGBoost):")
+print("\nConfusion Matrix (XGBoost):")
 print(confusion_matrix(y_test, y_pred_xgb))
 
 # Optional: Save selected features for interpretability
-selected_feature_names = X.columns[important_features]
+selected_feature_names = data.columns[1:][important_features]
 selected_feature_names.to_csv('selected_features.csv', index=False)
