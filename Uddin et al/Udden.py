@@ -13,11 +13,12 @@ from sklearn.ensemble import VotingClassifier
 from sklearn.metrics import accuracy_score, classification_report
 from imblearn.over_sampling import SMOTE
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, LSTM, SimpleRNN
+from tensorflow.keras.layers import Dense, LSTM, SimpleRNN, Input
 from tensorflow.keras.utils import to_categorical
 
 # Suppress warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
 
 # Load datasets
 train_df = pd.read_csv('Uddin et al/train_loan_pred.csv')
@@ -66,7 +67,8 @@ y_train_categorical = to_categorical(y_train_balanced)
 
 # Dense Neural Network
 dense_model = Sequential([
-    Dense(128, activation='relu', input_shape=(X_train_balanced.shape[1],)),
+    Input(shape=(X_train_balanced.shape[1],)),
+    Dense(128, activation='relu'),
     Dense(64, activation='relu'),
     Dense(2, activation='softmax')
 ])
@@ -75,7 +77,8 @@ dense_model.fit(X_train_balanced, y_train_categorical, epochs=10, batch_size=32,
 
 # LSTM Neural Network
 lstm_model = Sequential([
-    LSTM(64, activation='tanh', input_shape=(1, X_train_balanced.shape[1]), return_sequences=False),
+    Input(shape=(1, X_train_balanced.shape[1])),
+    LSTM(64, activation='tanh', return_sequences=False),
     Dense(2, activation='softmax')
 ])
 lstm_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
@@ -83,7 +86,8 @@ lstm_model.fit(X_train_balanced.values.reshape(-1, 1, X_train_balanced.shape[1])
 
 # Recurrent Neural Network (SimpleRNN)
 rnn_model = Sequential([
-    SimpleRNN(64, activation='tanh', input_shape=(1, X_train_balanced.shape[1]), return_sequences=False),
+    Input(shape=(1, X_train_balanced.shape[1])),
+    SimpleRNN(64, activation='tanh', return_sequences=False),
     Dense(2, activation='softmax')
 ])
 rnn_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
@@ -131,4 +135,4 @@ test_df['Loan_Status'] = pd.Series(final_preds).map({1: 'Y', 0: 'N'})
 
 # Save results
 test_df[['Loan_ID', 'Loan_Status']].to_csv('Uddin et al/test_predictions.csv', index=False)
-print("Test predictions saved to 'test_predictions.csv'.")
+print("Test predictions saved to 'Uddin et al/test_predictions.csv'.")
