@@ -10,7 +10,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import VotingClassifier
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report
 from imblearn.over_sampling import SMOTE
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, LSTM, SimpleRNN, Input
@@ -62,44 +62,77 @@ X_test = test_df.drop(['Loan_ID'], axis=1)
 smote = SMOTE(random_state=42)
 X_train_balanced, y_train_balanced = smote.fit_resample(X_train, y_train)
 
-# Train individual models and evaluate
-def evaluate_models():
-    models = {
-        'Logistic Regression': LogisticRegression(random_state=42, max_iter=500),
-        'Decision Tree': DecisionTreeClassifier(random_state=42),
-        'Random Forest': RandomForestClassifier(random_state=42),
-        'Extra Trees': ExtraTreesClassifier(random_state=42),
-        'SVM': SVC(probability=True, random_state=42),
-        'KNeighbors': KNeighborsClassifier(),
-        'GaussianNB': GaussianNB(),
-        'AdaBoost': AdaBoostClassifier(random_state=42),
-        'Gradient Boosting': GradientBoostingClassifier(random_state=42)
-    }
+# Convert target to categorical for neural networks
+y_train_categorical = to_categorical(y_train_balanced)
 
-    results = []
+# Dense Neural Network
+dense_model = Sequential([
+    Input(shape=(X_train_balanced.shape[1],)),
+    Dense(128, activation='relu'),
+    Dense(64, activation='relu'),
+    Dense(2, activation='softmax')
+])
+dense_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+dense_model.fit(X_train_balanced, y_train_categorical, epochs=10, batch_size=32, verbose=0)
 
-    for name, model in models.items():
-        model.fit(X_train_balanced, y_train_balanced)
-        y_pred = model.predict(X_train_balanced)
+# LSTM Neural Network
+lstm_model = Sequential([
+    Input(shape=(1, X_train_balanced.shape[1])),
+    LSTM(64, activation='tanh', return_sequences=False),
+    Dense(2, activation='softmax')
+])
+lstm_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+lstm_model.fit(X_train_balanced.values.reshape(-1, 1, X_train_balanced.shape[1]), y_train_categorical, epochs=10, batch_size=32, verbose=0)
 
-        accuracy = accuracy_score(y_train_balanced, y_pred)
-        precision = precision_score(y_train_balanced, y_pred)
-        recall = recall_score(y_train_balanced, y_pred)
-        f1 = f1_score(y_train_balanced, y_pred)
+# Recurrent Neural Network (SimpleRNN)
+rnn_model = Sequential([
+    Input(shape=(1, X_train_balanced.shape[1])),
+    SimpleRNN(64, activation='tanh', return_sequences=False),
+    Dense(2, activation='softmax')
+])
+rnn_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+rnn_model.fit(X_train_balanced.values.reshape(-1, 1, X_train_balanced.shape[1]), y_train_categorical, epochs=10, batch_size=32, verbose=0)
 
-        results.append({
-            'Model': name,
-            'Accuracy': accuracy,
-            'Precision': precision,
-            'Recall': recall,
-            'F1 Score': f1
-        })
+# Train individual models
+lr = LogisticRegression(random_state=42, max_iter=500)
+dt = DecisionTreeClassifier(random_state=42)
+rf = RandomForestClassifier(random_state=42)
+et = ExtraTreesClassifier(random_state=42)
+svm = SVC(probability=True, random_state=42)
+knn = KNeighborsClassifier()
+gnb = GaussianNB()
+adb = AdaBoostClassifier(random_state=42)
+gb = GradientBoostingClassifier(random_state=42)
 
-    results_df = pd.DataFrame(results)
-    print("\nModel Performance Metrics:\n")
-    print(results_df)
-    results_df.to_csv('Uddin et al/model_performance_metrics.csv', index=False)
-    print("\nMetrics saved to 'Uddin et al/model_performance_metrics.csv'.")
+lr.fit(X_train_balanced, y_train_balanced)
+dt.fit(X_train_balanced, y_train_balanced)
+rf.fit(X_train_balanced, y_train_balanced)
+et.fit(X_train_balanced, y_train_balanced)
+svm.fit(X_train_balanced, y_train_balanced)
+knn.fit(X_train_balanced, y_train_balanced)
+gnb.fit(X_train_balanced, y_train_balanced)
+adb.fit(X_train_balanced, y_train_balanced)
+gb.fit(X_train_balanced, y_train_balanced)
 
-# Evaluate models
-evaluate_models()
+# Combine models into a voting ensemble
+voting_clf = VotingClassifier(estimators=[
+    ('lr', lr), ('dt', dt), ('rf', rf), ('et', et), ('svm', svm), ('knn', knn), ('gnb', gnb), ('adb', adb), ('gb', gb)
+], voting='soft')
+
+voting_clf.fit(X_train_balanced, y_train_balanced)
+
+# Predict and evaluate
+train_preds = voting_clf.predict(X_train_balanced)
+train_accuracy = accuracy_score(y_train_balanced, train_preds)
+print("Training Accuracy:", train_accuracy)
+
+# Predictions on test data
+nn_preds = np.argmax(dense_model.predict(X_test), axis=1)
+test_preds = voting_clf.predict(X_test)
+final_preds = (nn_preds + test_preds) // 2  # Combine neural networks and ensemble model
+
+test_df['Loan_Status'] = pd.Series(final_preds).map({1: 'Y', 0: 'N'})
+
+# Save results
+test_df[['Loan_ID', 'Loan_Status']].to_csv('Uddin et al/test_predictions.csv', index=False)
+print("Test predictions saved to 'Uddin et al/test_predictions.csv'.")
