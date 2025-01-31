@@ -21,8 +21,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow")
 
 # Load datasets
-train_df = pd.read_csv('Uddin et al/train_loan_pred.csv')
-test_df = pd.read_csv('Uddin et al/test_loan_pred.csv')
+train_df = pd.read_csv('train_loan_pred.csv')
+test_df = pd.read_csv('test_loan_pred.csv')
 
 # Data preprocessing
 def preprocess_data(df, is_train=True):
@@ -134,5 +134,72 @@ final_preds = (nn_preds + test_preds) // 2  # Combine neural networks and ensemb
 test_df['Loan_Status'] = pd.Series(final_preds).map({1: 'Y', 0: 'N'})
 
 # Save results
-test_df[['Loan_ID', 'Loan_Status']].to_csv('Uddin et al/test_predictions.csv', index=False)
-print("Test predictions saved to 'Uddin et al/test_predictions.csv'.")
+test_df[['Loan_ID', 'Loan_Status']].to_csv('test_predictions.csv', index=False)
+print("Test predictions saved to 'test_predictions.csv'.")
+
+import matplotlib.pyplot as plt
+from sklearn.metrics import accuracy_score
+
+# Compute accuracy scores for each model
+model_accuracies = {
+    "Logistic Regression": accuracy_score(y_train_balanced, lr.predict(X_train_balanced)),
+    "Decision Tree": accuracy_score(y_train_balanced, dt.predict(X_train_balanced)),
+    "Random Forest": accuracy_score(y_train_balanced, rf.predict(X_train_balanced)),
+    "Extra Trees": accuracy_score(y_train_balanced, et.predict(X_train_balanced)),
+    "SVM": accuracy_score(y_train_balanced, svm.predict(X_train_balanced)),
+    "KNN": accuracy_score(y_train_balanced, knn.predict(X_train_balanced)),
+    "Naive Bayes": accuracy_score(y_train_balanced, gnb.predict(X_train_balanced)),
+    "AdaBoost": accuracy_score(y_train_balanced, adb.predict(X_train_balanced)),
+    "Gradient Boosting": accuracy_score(y_train_balanced, gb.predict(X_train_balanced)),
+    "Voting Classifier": accuracy_score(y_train_balanced, voting_clf.predict(X_train_balanced)),
+    "Dense NN": dense_model.evaluate(X_train_balanced, y_train_categorical, verbose=0)[1],
+    "LSTM NN": lstm_model.evaluate(X_train_balanced.values.reshape(-1, 1, X_train_balanced.shape[1]), y_train_categorical, verbose=0)[1],
+    "RNN": rnn_model.evaluate(X_train_balanced.values.reshape(-1, 1, X_train_balanced.shape[1]), y_train_categorical, verbose=0)[1]
+}
+
+# Sort models by accuracy
+sorted_models = sorted(model_accuracies.items(), key=lambda x: x[1], reverse=True)
+
+# Unpack model names and accuracy scores
+model_names, accuracy_scores = zip(*sorted_models)
+
+# Create a horizontal bar chart
+plt.figure(figsize=(12, 6))
+plt.barh(model_names, accuracy_scores, color='skyblue')
+plt.xlabel("Accuracy Score")
+plt.title("Model Accuracy Comparison")
+plt.xlim(0, 1)
+plt.gca().invert_yaxis()  # Invert y-axis for better readability
+
+# Show the plot
+plt.show()
+
+import pandas as pd
+from sklearn.metrics import accuracy_score
+
+# Compute accuracy scores for each model
+model_accuracies = {
+    "Logistic Regression": accuracy_score(y_train_balanced, lr.predict(X_train_balanced)),
+    "Decision Tree": accuracy_score(y_train_balanced, dt.predict(X_train_balanced)),
+    "Random Forest": accuracy_score(y_train_balanced, rf.predict(X_train_balanced)),
+    "Extra Trees": accuracy_score(y_train_balanced, et.predict(X_train_balanced)),
+    "SVM": accuracy_score(y_train_balanced, svm.predict(X_train_balanced)),
+    "KNN": accuracy_score(y_train_balanced, knn.predict(X_train_balanced)),
+    "Naive Bayes": accuracy_score(y_train_balanced, gnb.predict(X_train_balanced)),
+    "AdaBoost": accuracy_score(y_train_balanced, adb.predict(X_train_balanced)),
+    "Gradient Boosting": accuracy_score(y_train_balanced, gb.predict(X_train_balanced)),
+    "Voting Classifier": accuracy_score(y_train_balanced, voting_clf.predict(X_train_balanced)),
+    "Dense NN": dense_model.evaluate(X_train_balanced, y_train_categorical, verbose=0)[1],
+    "LSTM NN": lstm_model.evaluate(X_train_balanced.values.reshape(-1, 1, X_train_balanced.shape[1]), y_train_categorical, verbose=0)[1],
+    "RNN": rnn_model.evaluate(X_train_balanced.values.reshape(-1, 1, X_train_balanced.shape[1]), y_train_categorical, verbose=0)[1]
+}
+
+# Convert dictionary to a DataFrame
+results_df = pd.DataFrame(model_accuracies.items(), columns=["Model", "Accuracy Score"])
+
+# Sort by accuracy score in descending order
+results_df = results_df.sort_values(by="Accuracy Score", ascending=False)
+
+# Display the table
+from IPython.display import display
+display(results_df)
